@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ThemeToggle } from "./ThemeToggle";
 import { BookOpen, Volume2, Star, Trash2 } from "lucide-react";
 
-function Dictionary() {
+export default function Dictionary() {
   const [word, setWord] = useState("");
   const [definition, setDefinition] = useState(null);
   const [error, setError] = useState("");
@@ -100,7 +100,7 @@ function Dictionary() {
         <Card className="mb-8 shadow-lg">
           <CardHeader className="bg-secondary text-secondary-foreground">
             <CardTitle className="text-xl sm:text-2xl font-bold flex items-center justify-between">
-              {definition.word}
+              <span data-testid="defined-word">{definition.word}</span>
               <div className="flex items-center space-x-2">
                 {definition.phonetics[0]?.audio && (
                   <Button
@@ -121,6 +121,7 @@ function Dictionary() {
                       ? "Remove from favorites"
                       : "Add to favorites"
                   }
+                  data-testid="toggle-favorite"
                 >
                   <Star
                     className={`h-6 w-6 ${
@@ -145,10 +146,15 @@ function Dictionary() {
                 <ul className="list-disc list-inside space-y-2">
                   {meaning.definitions.map((def, i) => (
                     <li key={i} className="text-foreground">
-                      {def.definition}
+                      <span data-testid={`definition-${i}`}>
+                        {def.definition}
+                      </span>
                       {def.example && (
-                        <p className="text-muted-foreground mt-1 ml-4 italic">
-                          "{def.example}"
+                        <p
+                          className="text-muted-foreground mt-1 ml-4 italic"
+                          data-testid={`example-${i}`}
+                        >
+                          &ldquo;{def.example}&rdquo;
                         </p>
                       )}
                     </li>
@@ -162,11 +168,11 @@ function Dictionary() {
 
       <Card className="shadow-lg">
         <CardHeader className="bg-primary text-primary-foreground">
-          <CardTitle className="text-xl font-bold">Favorites</CardTitle>
+          <CardTitle className="text-xl font-bold">Favorite Words</CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           {favorites.length === 0 ? (
-            <p>No favorites</p>
+            <p data-testid="no-favorites">No favorite words yet.</p>
           ) : (
             <ul className="space-y-2">
               {favorites.map((fav) => (
@@ -180,6 +186,7 @@ function Dictionary() {
                       setWord(fav.word);
                       setDefinition(fav.definition);
                     }}
+                    data-testid={`favorite-word-${fav.word}`}
                   >
                     {fav.word}
                   </Button>
@@ -187,7 +194,8 @@ function Dictionary() {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeFavorite(fav.word)}
-                    title="Remove from favorites"
+                    title={`Remove ${fav.word} from favorites`}
+                    data-testid={`remove-favorite-${fav.word}`}
                   >
                     <Trash2 className="h-5 w-5 text-destructive" />
                   </Button>
@@ -200,5 +208,3 @@ function Dictionary() {
     </div>
   );
 }
-
-export default Dictionary;

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, getByPlaceholderText } from '@testing-library/react'
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import Dictionary from './Dictionary'
@@ -106,6 +106,74 @@ describe('Dictionary Component', () => {
 
     fireEvent.click(screen.getByTestId('remove-favorite-example'))
     expect(screen.getByTestId('no-favorites')).toBeInTheDocument()
+  })
+})
+
+describe('Search functionality with pressing the enter key', () => {
+  it('triggers search when the enter key is pressed', async () => {
+    render(<Dictionary />)
+
+    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
+      target: { value: 'example' },
+    })
+
+    fireEvent.keyPress(screen.getByPlaceholderText('Enter a word'), {
+      key: 'Enter',
+      code: 'Enter',
+      charCode: 13,
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('example')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
+  })
+})
+
+describe('Audio playback', () => {
+  it('plays the audio when the pronunciation button is clicked', async () => {
+    const playMock = vi.fn()
+    window.Audio = vi.fn(() => ({
+      play: playMock,
+    }))
+
+    render(<Dictionary />)
+
+    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
+      target: { value: 'example' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('defined-word')).toHaveTextContent('example')
+    })
+
+    const playButton = screen.getByRole('button', { name: /play pronunciation/i })
+    fireEvent.click(playButton)
+
+    expect(playMock).toHaveBeenCalled()
+    expect(window.Audio).toHaveBeenCalledWith(
+      'https://api.dictionaryapi.dev/media/pronunciations/en/example-uk.mp3'
+    )
+  })
+})
+
+describe('Error handling when searching for a word', () => {
+  it('displays an error message when a word is not found', async () => {
+    render(<Dictionary />)
+
+    // Search for a word that doesn't exist
+    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
+      target: { value: 'nonexistentword' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+
+    // Wait for the error message to be displayed
+    await waitFor(() => {
+      expect(screen.getByText(/word not found/i)).toBeInTheDocument()
+    })
   })
 })
 

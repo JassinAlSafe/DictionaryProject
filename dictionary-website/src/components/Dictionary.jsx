@@ -108,7 +108,7 @@ export default function Dictionary() {
                     variant="ghost"
                     size="icon"
                     onClick={() => playAudio(definition.phonetics[0].audio)}
-                    title="Listen to pronunciation"
+                    aria-label="Play pronunciation"
                   >
                     <Volume2 className="h-6 w-6" />
                   </Button>

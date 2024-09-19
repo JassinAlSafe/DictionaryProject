@@ -12,59 +12,54 @@ export default function Dictionary() {
   const [loading, setLoading] = useState(false)
   const [favorites, setFavorites] = useState([])
 
-  // Load favorites from local storage
   useEffect(() => {
-    const storedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
-    setFavorites(storedFavorites) // Set initial favorites from local storage
+    const storedFavorites = JSON.parse(sessionStorage.getItem('favorites') || '[]')
+    setFavorites(storedFavorites)
   }, [])
 
-  // Function to search for a word using the dictionary API
   const searchWord = async () => {
     if (!word.trim()) {
       setError('Please enter a word to search')
       return
     }
 
-    setLoading(true) // Set loading to true while fetching data
-    setError('') // Clear any previous error
-    setDefinition(null) // Clear any previous definition
+    setLoading(true)
+    setError('')
+    setDefinition(null)
 
     try {
-      // Fetch the definition from the API
       const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`)
       const data = await response.json()
 
       if (response.ok) {
-        setDefinition(data[0]) // Set the definition if word is found
+        setDefinition(data[0])
       } else {
-        setError('Word not found') // Set error message if word is not found
+        setError('Word not found')
       }
     } catch (err) {
-      setError(`An error occurred: ${err.message}`) // We handle network errors here
+      setError(`An error occurred: ${err.message}`)
     } finally {
-      setLoading(false) // End loading state
+      setLoading(false)
     }
   }
 
-  // Function to play audio pronunciation
   const playAudio = audioUrl => {
-    new Audio(audioUrl).play() // Play the audio from the provided URL
+    new Audio(audioUrl).play()
   }
 
-  // Function to toggle a word as favorite or remove from favorites
   const toggleFavorite = (word, def) => {
     const newFavorites = favorites.some(fav => fav.word === word)
-      ? favorites.filter(fav => fav.word !== word) // Remove from favorites if already favorited
-      : [...favorites, { word, definition: def }] // Add to favorites if not already favorited
+      ? favorites.filter(fav => fav.word !== word)
+      : [...favorites, { word, definition: def }]
 
     setFavorites(newFavorites)
-    localStorage.setItem('favorites', JSON.stringify(newFavorites))
+    sessionStorage.setItem('favorites', JSON.stringify(newFavorites))
   }
 
   const removeFavorite = word => {
     const newFavorites = favorites.filter(fav => fav.word !== word)
     setFavorites(newFavorites)
-    localStorage.setItem('favorites', JSON.stringify(newFavorites))
+    sessionStorage.setItem('favorites', JSON.stringify(newFavorites))
   }
 
   return (
@@ -101,7 +96,7 @@ export default function Dictionary() {
         <Card className="mb-8 shadow-lg">
           <CardHeader className="bg-secondary text-secondary-foreground">
             <CardTitle className="text-xl sm:text-2xl font-bold flex items-center justify-between">
-              <span data-testid="defined-word">{definition.word}</span>
+              <span>{definition.word}</span>
               <div className="flex items-center space-x-2">
                 {definition.phonetics[0]?.audio && (
                   <Button
@@ -117,12 +112,11 @@ export default function Dictionary() {
                   variant="ghost"
                   size="icon"
                   onClick={() => toggleFavorite(definition.word, definition)}
-                  title={
+                  aria-label={
                     favorites.some(fav => fav.word === definition.word)
                       ? 'Remove from favorites'
                       : 'Add to favorites'
                   }
-                  data-testid="toggle-favorite"
                 >
                   <Star
                     className={`h-6 w-6 ${
@@ -135,19 +129,15 @@ export default function Dictionary() {
             {definition.phonetic && <p className="text-muted-foreground">{definition.phonetic}</p>}
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
-            {/* Here we display meanings and definition */}
             {definition.meanings.map((meaning, index) => (
               <div key={index} className="mb-6">
                 <h3 className="font-bold text-lg text-primary mb-2">{meaning.partOfSpeech}</h3>
                 <ul className="list-disc list-inside space-y-2">
                   {meaning.definitions.map((def, i) => (
                     <li key={i} className="text-foreground">
-                      <span data-testid={`definition-${i}`}>{def.definition}</span>
+                      <span>{def.definition}</span>
                       {def.example && (
-                        <p
-                          className="text-muted-foreground mt-1 ml-4 italic"
-                          data-testid={`example-${i}`}
-                        >
+                        <p className="text-muted-foreground mt-1 ml-4 italic">
                           &ldquo;{def.example}&rdquo;
                         </p>
                       )}
@@ -160,14 +150,13 @@ export default function Dictionary() {
         </Card>
       )}
 
-      {/* Favorites Card */}
       <Card className="shadow-lg">
         <CardHeader className="bg-primary text-primary-foreground">
           <CardTitle className="text-xl font-bold">Favorite Words</CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           {favorites.length === 0 ? (
-            <p data-testid="no-favorites">No favorite words yet.</p>
+            <p>No favorite words yet.</p>
           ) : (
             <ul className="space-y-2">
               {favorites.map(fav => (
@@ -178,7 +167,6 @@ export default function Dictionary() {
                       setWord(fav.word)
                       setDefinition(fav.definition)
                     }}
-                    data-testid={`favorite-word-${fav.word}`}
                   >
                     {fav.word}
                   </Button>
@@ -186,8 +174,7 @@ export default function Dictionary() {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeFavorite(fav.word)}
-                    title={`Remove ${fav.word} from favorites`}
-                    data-testid={`remove-favorite-${fav.word}`}
+                    aria-label={`Remove ${fav.word} from favorites`}
                   >
                     <Trash2 className="h-5 w-5 text-destructive" />
                   </Button>

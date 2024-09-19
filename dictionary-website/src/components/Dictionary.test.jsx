@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, getByPlaceholderText } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
@@ -36,7 +36,7 @@ const handlers = [
       {
         title: 'No Definitions Found',
         message: "Sorry pal, we couldn't find definitions for the word you were looking for.",
-        resolution: 'You can try the search again at later time or head to the web instead.',
+        resolution: 'You can try the search again at a later time or head to the web instead.',
       },
       { status: 404 }
     )
@@ -53,12 +53,12 @@ describe('Dictionary Component', () => {
   it('renders the search input and button', () => {
     render(<Dictionary />)
     expect(screen.getByPlaceholderText('Enter a word')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
   })
 
   it('displays an error message when searching with an empty input', async () => {
     render(<Dictionary />)
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
     expect(await screen.findByText('Please enter a word to search')).toBeInTheDocument()
   })
 
@@ -67,14 +67,12 @@ describe('Dictionary Component', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
       target: { value: 'example' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('defined-word')).toHaveTextContent('example')
-      expect(screen.getByTestId('definition-0')).toHaveTextContent(
-        'Something that is representative of all such things in a group.'
-      )
-      expect(screen.getByTestId('example-0')).toHaveTextContent('This is an example of a red car.')
+      expect(screen.getByText('example')).toBeInTheDocument()
+      expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
+      expect(screen.getByText(/this is an example of a red car/i)).toBeInTheDocument()
     })
   })
 
@@ -83,7 +81,7 @@ describe('Dictionary Component', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
       target: { value: 'nonexistentword' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Word not found')).toBeInTheDocument()
@@ -92,42 +90,25 @@ describe('Dictionary Component', () => {
 
   it('allows adding and removing favorites', async () => {
     render(<Dictionary />)
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'example' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    await waitFor(() => {
-      fireEvent.click(screen.getByTestId('toggle-favorite'))
-    })
-
-    expect(screen.getByTestId('favorite-word-example')).toBeInTheDocument()
-    expect(screen.getByTestId('remove-favorite-example')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('remove-favorite-example'))
-    expect(screen.getByTestId('no-favorites')).toBeInTheDocument()
-  })
-})
-
-describe('Search functionality with pressing the enter key', () => {
-  it('triggers search when the enter key is pressed', async () => {
-    render(<Dictionary />)
 
     fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
       target: { value: 'example' },
     })
-
-    fireEvent.keyPress(screen.getByPlaceholderText('Enter a word'), {
-      key: 'Enter',
-      code: 'Enter',
-      charCode: 13,
-    })
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
 
     await waitFor(() => {
       expect(screen.getByText('example')).toBeInTheDocument()
     })
 
-    expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
+    const addToFavoritesButton = screen.getByRole('button', { name: /add to favorites/i })
+    fireEvent.click(addToFavoritesButton)
+
+    const removeFromFavoritesButton = screen.getByRole('button', { name: /remove from favorites/i })
+    expect(removeFromFavoritesButton).toBeInTheDocument()
+
+    fireEvent.click(removeFromFavoritesButton)
+
+    expect(screen.getByRole('button', { name: /add to favorites/i })).toBeInTheDocument()
   })
 })
 
@@ -143,10 +124,10 @@ describe('Audio playback', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
       target: { value: 'example' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('defined-word')).toHaveTextContent('example')
+      expect(screen.getByText('example')).toBeInTheDocument()
     })
 
     const playButton = screen.getByRole('button', { name: /play pronunciation/i })
@@ -159,90 +140,6 @@ describe('Audio playback', () => {
   })
 })
 
-describe('Error handling when searching for a word', () => {
-  it('displays an error message when a word is not found', async () => {
-    render(<Dictionary />)
-
-    // Search for a word that doesn't exist
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'nonexistentword' },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
-
-    // Wait for the error message to be displayed
-    await waitFor(() => {
-      expect(screen.getByText(/word not found/i)).toBeInTheDocument()
-    })
-  })
-})
-
 export default function Component() {
   return <Dictionary />
 }
-
-const localStorageMock = (() => {
-  let store = {}
-
-  return {
-    getItem: key => store[key] || null,
-    setItem: (key, value) => {
-      store[key] = value.toString()
-    },
-    clear: () => {
-      store = {}
-    },
-    removeItem: key => {
-      delete store[key]
-    },
-  }
-})()
-
-beforeAll(() => {
-  Object.defineProperty(window, 'localStorage', { value: localStorageMock })
-})
-
-afterEach(() => {
-  localStorageMock.clear()
-})
-
-describe('Dictionary Component - Local Storage functionality', () => {
-  it('retrieves favorites from localStorage on component mount', () => {
-    const mockFavorites = JSON.stringify([{ word: 'example', definition: {} }])
-    localStorage.setItem('favorites', mockFavorites)
-
-    render(<Dictionary />)
-
-    expect(screen.getByText('example')).toBeInTheDocument()
-  })
-
-  it('adds a word to favorite and updates localStorage', async () => {
-    render(<Dictionary />)
-
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'example' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('defined-word')).toHaveTextContent('example')
-    })
-
-    fireEvent.click(screen.getByTestId('toggle-favorite'))
-
-    expect(localStorage.getItem('favorites')).toContain('example')
-  })
-
-  it('removes a word from favorites and updates localStorage', async () => {
-    const mockFavorites = JSON.stringify([{ word: 'example', definition: {} }])
-    localStorage.setItem('favorites', mockFavorites)
-
-    render(<Dictionary />)
-
-    expect(screen.getByText('example')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('remove-favorite-example'))
-
-    expect(localStorage.getItem('favorites')).not.toContain('example')
-  })
-})

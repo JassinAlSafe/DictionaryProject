@@ -4,6 +4,13 @@ import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import Dictionary from './Dictionary'
 
+// Mock the sessionStorage
+const mockSessionStorage = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+}
+Object.defineProperty(window, 'sessionStorage', { value: mockSessionStorage })
+
 const handlers = [
   http.get('https://api.dictionaryapi.dev/api/v2/entries/en/:word', ({ params }) => {
     const { word } = params
@@ -46,7 +53,10 @@ const handlers = [
 const server = setupServer(...handlers)
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  vi.clearAllMocks()
+})
 afterAll(() => server.close())
 
 describe('Dictionary Component', () => {
@@ -89,11 +99,10 @@ describe('Dictionary Component', () => {
   })
 
   it('allows adding and removing favorites', async () => {
+    mockSessionStorage.getItem.mockReturnValue('[]')
     render(<Dictionary />)
 
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'example' },
-    })
+    fireEvent.change(screen.getByPlaceholderText('Enter a word'), { target: { value: 'example' } })
     fireEvent.click(screen.getByRole('button', { name: /search/i }))
 
     await waitFor(() => {
@@ -103,12 +112,48 @@ describe('Dictionary Component', () => {
     const addToFavoritesButton = screen.getByRole('button', { name: /add to favorites/i })
     fireEvent.click(addToFavoritesButton)
 
+    expect(mockSessionStorage.setItem).toHaveBeenCalledWith('favorites', expect.any(String))
+
     const removeFromFavoritesButton = screen.getByRole('button', { name: /remove from favorites/i })
     expect(removeFromFavoritesButton).toBeInTheDocument()
 
     fireEvent.click(removeFromFavoritesButton)
 
     expect(screen.getByRole('button', { name: /add to favorites/i })).toBeInTheDocument()
+    expect(mockSessionStorage.setItem).toHaveBeenCalledWith('favorites', '[]')
+  })
+
+  it('loads favorites from sessionStorage on mount', () => {
+    const favorites = [{ word: 'test', definition: { word: 'test', meanings: [] } }]
+    mockSessionStorage.getItem.mockReturnValue(JSON.stringify(favorites))
+
+    render(<Dictionary />)
+
+    expect(screen.getByText('test')).toBeInTheDocument()
+  })
+
+  it('clears the search field after each search', async () => {
+    render(<Dictionary />)
+    const searchInput = screen.getByPlaceholderText('Enter a word')
+
+    fireEvent.change(searchInput, { target: { value: 'example' } })
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('example')).toBeInTheDocument()
+    })
+
+    expect(searchInput).toHaveValue('')
+
+    // Test with a failed search
+    fireEvent.change(searchInput, { target: { value: 'nonexistentword' } })
+    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Word not found')).toBeInTheDocument()
+    })
+
+    expect(searchInput).toHaveValue('')
   })
 })
 

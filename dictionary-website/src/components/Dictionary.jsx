@@ -40,6 +40,7 @@ export default function Dictionary() {
       setError(`An error occurred: ${err.message}`)
     } finally {
       setLoading(false)
+      setWord('')
     }
   }
 

@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import Dictionary from './Dictionary'
+import userEvent from '@testing-library/user-event'
 
 // Mock the sessionStorage
 const mockSessionStorage = {
@@ -67,57 +68,65 @@ describe('Dictionary Component', () => {
   })
 
   it('displays an error message when searching with an empty input', async () => {
+    const user = userEvent.setup()
     render(<Dictionary />)
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.click(screen.getByRole('button', { name: /search/i }))
     expect(await screen.findByText('Please enter a word to search')).toBeInTheDocument()
   })
 
   it('fetches and displays the definition when a word is searched', async () => {
+    const user = userEvent.setup()
     render(<Dictionary />)
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'example' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.type(screen.getByPlaceholderText('Enter a word'), 'example')
+    await user.click(screen.getByRole('button', { name: /search/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('example')).toBeInTheDocument()
-      expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
-      expect(screen.getByText(/this is an example of a red car/i)).toBeInTheDocument()
-    })
+    expect(await screen.findByText('example')).toBeInTheDocument()
+    expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
+    expect(screen.getByText(/this is an example of a red car/i)).toBeInTheDocument()
+  })
+
+  it('lets the user click enter to search for a word', async () => {
+    const user = userEvent.setup()
+    render(<Dictionary />)
+
+    const input = screen.getByPlaceholderText('Enter a word')
+    await user.type(input, 'example')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('example')).toBeInTheDocument()
+    expect(screen.getByText(/representative of all such things/i)).toBeInTheDocument()
+    expect(screen.getByText(/this is an example of a red car/i)).toBeInTheDocument()
+
+    expect(input).toHaveValue('')
   })
 
   it('displays an error message when a word is not found', async () => {
+    const user = userEvent.setup()
     render(<Dictionary />)
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'nonexistentword' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.type(screen.getByPlaceholderText('Enter a word'), 'nonexistentword')
+    await user.click(screen.getByRole('button', { name: /search/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('Word not found')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('Word not found')).toBeInTheDocument()
   })
-
   it('allows adding and removing favorites', async () => {
+    const user = userEvent.setup()
     mockSessionStorage.getItem.mockReturnValue('[]')
     render(<Dictionary />)
 
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), { target: { value: 'example' } })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.type(screen.getByPlaceholderText('Enter a word'), 'example')
+    await user.click(screen.getByRole('button', { name: /search/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('example')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('example')).toBeInTheDocument()
 
     const addToFavoritesButton = screen.getByRole('button', { name: /add to favorites/i })
-    fireEvent.click(addToFavoritesButton)
+    await user.click(addToFavoritesButton)
 
     expect(mockSessionStorage.setItem).toHaveBeenCalledWith('favorites', expect.any(String))
 
     const removeFromFavoritesButton = screen.getByRole('button', { name: /remove from favorites/i })
     expect(removeFromFavoritesButton).toBeInTheDocument()
 
-    fireEvent.click(removeFromFavoritesButton)
+    await user.click(removeFromFavoritesButton)
 
     expect(screen.getByRole('button', { name: /add to favorites/i })).toBeInTheDocument()
     expect(mockSessionStorage.setItem).toHaveBeenCalledWith('favorites', '[]')
@@ -133,58 +142,47 @@ describe('Dictionary Component', () => {
   })
 
   it('clears the search field after each search', async () => {
+    const user = userEvent.setup()
     render(<Dictionary />)
     const searchInput = screen.getByPlaceholderText('Enter a word')
 
-    fireEvent.change(searchInput, { target: { value: 'example' } })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.type(searchInput, 'example')
+    await user.click(screen.getByRole('button', { name: /search/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('example')).toBeInTheDocument()
-    })
-
+    expect(await screen.findByText('example')).toBeInTheDocument()
     expect(searchInput).toHaveValue('')
 
     // Test with a failed search
-    fireEvent.change(searchInput, { target: { value: 'nonexistentword' } })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
+    await user.type(searchInput, 'nonexistentword')
+    await user.click(screen.getByRole('button', { name: /search/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('Word not found')).toBeInTheDocument()
-    })
-
+    expect(await screen.findByText('Word not found')).toBeInTheDocument()
     expect(searchInput).toHaveValue('')
   })
-})
+  describe('Audio playback', () => {
+    it('plays the audio when the pronunciation button is clicked', async () => {
+      const user = userEvent.setup()
+      const playMock = vi.fn()
+      window.Audio = vi.fn(() => ({
+        play: playMock,
+      }))
 
-describe('Audio playback', () => {
-  it('plays the audio when the pronunciation button is clicked', async () => {
-    const playMock = vi.fn()
-    window.Audio = vi.fn(() => ({
-      play: playMock,
-    }))
+      render(<Dictionary />)
 
-    render(<Dictionary />)
+      await user.type(screen.getByPlaceholderText('Enter a word'), 'example')
+      await user.click(screen.getByRole('button', { name: /search/i }))
 
-    fireEvent.change(screen.getByPlaceholderText('Enter a word'), {
-      target: { value: 'example' },
+      expect(await screen.findByText('example')).toBeInTheDocument()
+
+      const playButton = screen.getByRole('button', { name: /play pronunciation/i })
+      await user.click(playButton)
+
+      expect(playMock).toHaveBeenCalled()
+      expect(window.Audio).toHaveBeenCalledWith(
+        'https://api.dictionaryapi.dev/media/pronunciations/en/example-uk.mp3'
+      )
     })
-    fireEvent.click(screen.getByRole('button', { name: /search/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('example')).toBeInTheDocument()
-    })
-
-    const playButton = screen.getByRole('button', { name: /play pronunciation/i })
-    fireEvent.click(playButton)
-
-    expect(playMock).toHaveBeenCalled()
-    expect(window.Audio).toHaveBeenCalledWith(
-      'https://api.dictionaryapi.dev/media/pronunciations/en/example-uk.mp3'
-    )
   })
 })
 
-export default function Component() {
-  return <Dictionary />
-}
+// Tester för theme

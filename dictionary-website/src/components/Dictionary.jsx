@@ -165,7 +165,7 @@ export default function Dictionary() {
                   <Button
                     variant="link"
                     onClick={() => {
-                      setWord(fav.word)
+                      setWord("")
                       setDefinition(fav.definition)
                     }}
                   >

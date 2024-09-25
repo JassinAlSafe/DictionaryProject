@@ -12,11 +12,13 @@ export default function Dictionary() {
   const [loading, setLoading] = useState(false)
   const [favorites, setFavorites] = useState([])
 
+  // Load favorites from session storage
   useEffect(() => {
     const storedFavorites = JSON.parse(sessionStorage.getItem('favorites') || '[]')
     setFavorites(storedFavorites)
   }, [])
 
+  // function to search for a words definition
   const searchWord = async () => {
     if (!word.trim()) {
       setError('Please enter a word to search')
@@ -44,10 +46,12 @@ export default function Dictionary() {
     }
   }
 
+  // function to play audio pronunciation
   const playAudio = audioUrl => {
     new Audio(audioUrl).play()
   }
 
+  // function to toggle a word as favorite 
   const toggleFavorite = (word, def) => {
     const newFavorites = favorites.some(fav => fav.word === word)
       ? favorites.filter(fav => fav.word !== word)
@@ -57,6 +61,7 @@ export default function Dictionary() {
     sessionStorage.setItem('favorites', JSON.stringify(newFavorites))
   }
 
+  // function to remove a word from favorites 
   const removeFavorite = word => {
     const newFavorites = favorites.filter(fav => fav.word !== word)
     setFavorites(newFavorites)
@@ -65,6 +70,7 @@ export default function Dictionary() {
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
+    {/* Search Card */}
       <Card className="mb-8 shadow-lg">
         <CardHeader className="bg-primary text-primary-foreground">
           <div className="flex justify-between items-center">
@@ -93,6 +99,7 @@ export default function Dictionary() {
         </CardContent>
       </Card>
 
+      {/* Definition Card */}
       {definition && (
         <Card className="mb-8 shadow-lg">
           <CardHeader className="bg-secondary text-secondary-foreground">
@@ -151,6 +158,7 @@ export default function Dictionary() {
         </Card>
       )}
 
+      {/* Favorites Card */}
       <Card className="shadow-lg">
         <CardHeader className="bg-primary text-primary-foreground">
           <CardTitle className="text-xl font-bold">Favorite Words</CardTitle>
